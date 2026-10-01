@@ -739,6 +739,16 @@ dependencies:
       registry_url: https://components.espressif.com/
       type: service
     version: 3.0.3
+  espressif/mdns:
+    component_hash: b679eafd0acae2066e2645bd91d073e33ca5be515e2545cd3c4e55a3e3bce3cb
+    dependencies:
+    - name: idf
+      require: private
+      version: '>=5.0'
+    source:
+      registry_url: https://components.espressif.com/
+      type: service
+    version: 1.13.1
   espressif/usb_host_uvc:
     component_hash: b0cb9a3a2eaa09dc6e5cc3e47e04d0a73e47c2d3dcfb3afce959224a1fe5fb5e
     dependencies:
@@ -901,6 +911,7 @@ direct_dependencies:
 - espressif/iot_usbh_rndis
 - espressif/knob
 - espressif/led_strip
+- espressif/mdns
 - espressif2022/image_player
 - idf
 - lvgl/lvgl
@@ -910,6 +921,6 @@ direct_dependencies:
 - waveshare/esp_lcd_sh8601
 - waveshare/esp_lcd_touch_cst9217
 - wvirgil123/sscma_client
-manifest_hash: 350e17991f1a3226438480b027525b7cde67c34ed4ec6c5847cdfcb22e18dc4a
+manifest_hash: 0acfddd452c73d46c5426d1c4a41c483ac5f876c18cbc69ca5b7fc4da0233cf8
 target: esp32s3
 version: 2.0.0

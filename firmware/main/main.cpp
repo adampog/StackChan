@@ -25,7 +25,7 @@ extern "C" void app_main(void)
 
     // Camera frames from reefwatch, shown over any app and in AI agent mode
     view::reefwatch_view_init();
-    GetHAL().startReefwatchService();
+    GetHAL().startLanServer();
 
     // Setup ui hal
     ui_hal::on_delay([](uint32_t ms) { GetHAL().delay(ms); });

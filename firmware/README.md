@@ -49,8 +49,27 @@ CONFIG_STACKCHAN_REEFWATCH_TOKEN="change-me"
 CONFIG_STACKCHAN_REEFWATCH_CAMERA_YAW="front=-45,garden=45"
 ```
 
-and point reefwatch at the robot with `REEFWATCH_STACKCHAN_URL=http://<robot-ip>` and the same
-`REEFWATCH_STACKCHAN_TOKEN`. The robot logs its address on boot (`listening on http://...`).
+and point reefwatch at the robot with `REEFWATCH_STACKCHAN_URL=http://stackchan.local` (or its IP) and the
+same `REEFWATCH_STACKCHAN_TOKEN`. The robot logs its address on boot (`listening on http://...`).
 Protocol: `POST /frame` (JPEG ≤ 320×240, headers `X-Reefwatch-Token`, `X-Camera`, `X-Kind`, `X-Labels`)
 and `GET /live` → `{"camera": "front" | null, "fps": 5}`. Code: `main/hal/hal_reefwatch.cpp`,
 `main/apps/common/reefwatch_view/`.
+
+## LAN MCP server (adampog fork)
+
+The robot's own MCP tools (`main/hal/hal_mcp.cpp`) are also served to agents on the LAN, such as
+[ESP-Claw](https://github.com/adampog/ESP-Claw) running on another ESP32-S3: JSON-RPC over
+`POST http://stackchan.local/mcp_server` (`initialize`, `ping`, `tools/list` with cursor paging,
+`tools/call`), advertised over mDNS as `_mcp._tcp` with TXT `endpoint=mcp_server`, which is what
+ESP-Claw's `mcp_client` discovers. Tools: head angles, LED color, reminders, live camera view, and
+`self.robot.set_expression` / `self.robot.show_message` for agents that can't drive the voice
+pipeline's emotions. The same tool objects are registered with xiaozhi, so the voice agent sees them too.
+
+```bash
+curl -s http://stackchan.local/mcp_server -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'
+curl -s http://stackchan.local/mcp_server -d '{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"self.robot.set_expression","arguments":{"expression":"happy"}}}'
+```
+
+There is no authentication: anything on the LAN can move the head. Turn it off with
+`CONFIG_STACKCHAN_LAN_MCP_ENABLE=n`; port, hostname and endpoint are in the "LAN Services" Kconfig menu.
+Code: `main/hal/hal_lan_server.cpp`, `main/hal/hal_lan_mcp.cpp`.

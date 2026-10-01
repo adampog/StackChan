@@ -7,13 +7,10 @@
  *   GET  /live   {"camera": "front" | null, "fps": 5}, polled by reefwatch to know what to stream live
  */
 #include "hal.h"
+#include "hal_lan_server.h"
 #include "utils/jpeg_to_image/jpeg_decoder.h"
 #include <mooncake_log.h>
-#include <wifi_manager.h>
-#include <esp_http_server.h>
 #include <esp_heap_caps.h>
-#include <freertos/FreeRTOS.h>
-#include <freertos/task.h>
 #include <cstring>
 #include <mutex>
 
@@ -148,49 +145,16 @@ static esp_err_t live_handler(httpd_req_t* req)
     return httpd_resp_send(req, body.data(), body.size());
 }
 
-static void start_server_task(void* param)
+void reefwatch_register_uris(httpd_handle_t server)
 {
-    // The server binds to any address, but waiting for Wi-Fi gives a useful log line
-    while (!WifiManager::GetInstance().IsConnected()) {
-        vTaskDelay(pdMS_TO_TICKS(1000));
-    }
-
-    httpd_config_t config   = HTTPD_DEFAULT_CONFIG();
-    config.server_port      = CONFIG_STACKCHAN_REEFWATCH_PORT;
-    config.ctrl_port        = ESP_HTTPD_DEF_CTRL_PORT + 7;  // stay clear of the Wi-Fi config portal's server
-    config.stack_size       = 8192;                         // JPEG decoding runs on this task
-    config.task_caps        = MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT;  // internal SRAM is tight
-    config.max_open_sockets = 3;
-    config.lru_purge_enable = true;
-
-    httpd_handle_t server = nullptr;
-    if (httpd_start(&server, &config) != ESP_OK) {
-        mclog::tagError(_tag, "failed to start http server on port {}", config.server_port);
-        vTaskDelete(nullptr);
-        return;
-    }
-
     httpd_uri_t frame_uri = {.uri = "/frame", .method = HTTP_POST, .handler = frame_handler, .user_ctx = nullptr};
     httpd_uri_t live_uri  = {.uri = "/live", .method = HTTP_GET, .handler = live_handler, .user_ctx = nullptr};
     httpd_register_uri_handler(server, &frame_uri);
     httpd_register_uri_handler(server, &live_uri);
 
-    mclog::tagInfo(_tag, "listening on http://{}:{}", WifiManager::GetInstance().GetIpAddress(), config.server_port);
-    if (CONFIG_STACKCHAN_REEFWATCH_TOKEN[0] == '\0') {
+    if (CONFIG_STACKCHAN_REEFWATCH_TOKEN[0] == 0) {
         mclog::tagWarn(_tag, "no token set, any device on the LAN can post frames");
     }
-    vTaskDelete(nullptr);
-}
-
-void Hal::startReefwatchService()
-{
-    xTaskCreate(start_server_task, "reefwatch", 4096, nullptr, 3, nullptr);
-}
-
-#else
-
-void Hal::startReefwatchService()
-{
 }
 
 #endif
