@@ -8,6 +8,7 @@
 #include <mcp_server.h>
 #include <stackchan/stackchan.h>
 #include <apps/common/common.h>
+#include <sdkconfig.h>
 
 using namespace stackchan;
 
@@ -146,4 +147,26 @@ void Hal::xiaozhi_mcp_init()
                            tools::stop_reminder(id);
                            return true;
                        });
+
+#if CONFIG_STACKCHAN_REEFWATCH_ENABLE
+    mclog::tagInfo(_tag, "add cameras.show_live tool");
+    mcp_server.AddTool("self.cameras.show_live",
+                       "Show a home security camera live on your screen for up to 5 minutes. "
+                       "Use when the user asks to see or check a camera. Camera names are like 'front' or 'garden'.",
+                       PropertyList({Property("camera", kPropertyTypeString, std::string("front"))}),
+                       [this](const PropertyList& properties) -> ReturnValue {
+                           auto camera = properties["camera"].value<std::string>();
+                           mclog::tagInfo(_tag, "cameras.show_live: {}", camera);
+                           setReefwatchLiveCamera(camera);
+                           return true;
+                       });
+
+    mclog::tagInfo(_tag, "add cameras.stop_live tool");
+    mcp_server.AddTool("self.cameras.stop_live", "Stop showing the live camera view.", std::vector<Property>{},
+                       [this](const PropertyList& properties) -> ReturnValue {
+                           mclog::tagInfo(_tag, "cameras.stop_live");
+                           setReefwatchLiveCamera("");
+                           return true;
+                       });
+#endif
 }

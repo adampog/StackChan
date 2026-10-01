@@ -9,6 +9,7 @@
 #include <mooncake.h>
 #include <apps/apps.h>
 #include <hal/hal.h>
+#include <apps/common/reefwatch_view/reefwatch_view.h>
 
 using namespace mooncake;
 using namespace smooth_ui_toolkit;
@@ -21,6 +22,10 @@ extern "C" void app_main(void)
 
     // HAL init
     GetHAL().init();
+
+    // Camera frames from reefwatch, shown over any app and in AI agent mode
+    view::reefwatch_view_init();
+    GetHAL().startReefwatchService();
 
     // Setup ui hal
     ui_hal::on_delay([](uint32_t ms) { GetHAL().delay(ms); });
