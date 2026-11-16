@@ -20,7 +20,7 @@ selected_module:
   TTS: EdgeTTS         # free, but calls Microsoft's service; swap for a local TTS later
   Memory: nomem
   # function_call lets the LLM drive StackChan's MCP tools (head, LEDs, camera).
-  # Needs a model with tool calling (qwen2.5, llama3.1, mistral-nemo, ...).
+  # Needs a model with tool calling (the default qwen3.8-flash on nuc3080 does).
   # Use nointent if your model can't do tools.
   Intent: function_call
 
@@ -30,6 +30,8 @@ LLM:
     url: ${LLM_URL}
     model_name: ${LLM_MODEL}
     api_key: ${LLM_API_KEY}
+    # Sent as extra_body {"thinking": {"type": "disabled"}} when off.
+    thinking: "${LLM_THINKING}"
 
 ASR:
   FunASR:

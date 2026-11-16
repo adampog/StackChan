@@ -19,7 +19,7 @@ and point it at nuc3080's OpenAI-compatible endpoint:
 ```
 StackChan ──OTA──▶ xiaozhi-server :8003 ──▶ ws://…:8000 (audio)
                        │  ASR: SenseVoice (local)
-                       │  LLM: http://nuc3080:11434/v1  ◀── your model
+                       │  LLM: http://nuc3080:8080/v1   ◀── your model
                        └  TTS: EdgeTTS (or a local TTS)
 ```
 
@@ -27,22 +27,24 @@ No firmware code changes are needed: the OTA URL is already configurable.
 
 ## 1. Check the LLM on nuc3080
 
-From another machine on the LAN:
+nuc3080 (192.168.1.214) runs Strata, a llama.cpp-style server, on port 8080
+with an OpenAI-compatible API at `/v1` and one model,
+`qwen3.8-flash-next-iq2_xs`. Requests from other machines need the API key:
 
 ```sh
-curl http://nuc3080:11434/v1/models          # Ollama; adjust port for llama.cpp / LM Studio / vLLM
+curl -H "Authorization: Bearer $STRATA_API_KEY" http://nuc3080:8080/v1/models
 ```
 
-If it only answers on localhost, make it listen on the LAN (Ollama: set
-`OLLAMA_HOST=0.0.0.0` and restart). Pick a model that supports tool calling
-(for example `qwen2.5:7b` or `llama3.1:8b`) so StackChan's MCP tools (head moves,
-LEDs, camera) keep working.
+Checked from the LAN on 2026-11-16: the model answers and makes correct tool
+calls, so StackChan's MCP tools (head moves, LEDs, camera) can work. It reasons
+before answering by default (about 2.5 s for a short reply, 0.3 s with thinking
+off), so `.env` sets `LLM_THINKING=off`.
 
 ## 2. Start the xiaozhi server (on nuc3080, or any always-on LAN box)
 
 ```sh
 cd deploy/local-llm
-cp .env.example .env        # set LLM_URL, LLM_MODEL, XIAOZHI_HOST
+cp .env.example .env        # set LLM_API_KEY (and host/model if they change)
 ./render-config.sh          # writes data/.config.yaml and prints the OTA URL
 curl -L -o models/SenseVoiceSmall/model.pt \
   https://modelscope.cn/models/iic/SenseVoiceSmall/resolve/master/model.pt
@@ -55,6 +57,17 @@ message saying the OTA interface is running, with the WebSocket address.
 
 All the knobs (LLM host, port, model, voice, ports) live in `.env`. Change them
 and re-run `./render-config.sh && docker compose restart`.
+
+Notes for nuc3080:
+
+- Its firewall only allows 8080. Open 8000 and 8003 to the LAN through the
+  homelab inventory (`inventory/host_vars/nuc3080.yml`), not a hand-made ufw rule.
+- The GPU has little free VRAM with Strata loaded. This compose file doesn't
+  pass the GPU through, so speech recognition runs on the CPU and doesn't compete.
+- `LLM_THINKING=off` sends `{"thinking": {"type": "disabled"}}`. Strata was
+  tested with `chat_template_kwargs.enable_thinking=false` instead, so if
+  replies are slow or empty, check the server log to see whether it honours
+  this form.
 
 ## 3. Point the robot at it
 
