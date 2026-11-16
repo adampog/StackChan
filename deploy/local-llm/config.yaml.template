@@ -1,0 +1,56 @@
+# Rendered into data/.config.yaml by render-config.sh. Only the keys here
+# override the server's built-in config.yaml; everything else stays default.
+# ${VARS} come from .env.
+
+server:
+  ip: 0.0.0.0
+  port: ${XIAOZHI_WS_PORT}
+  http_port: ${XIAOZHI_HTTP_PORT}
+  # Address the OTA endpoint hands to the robot. Must be reachable from the robot.
+  websocket: ws://${XIAOZHI_HOST}:${XIAOZHI_WS_PORT}/xiaozhi/v1/
+  vision_explain: http://${XIAOZHI_HOST}:${XIAOZHI_HTTP_PORT}/mcp/vision/explain
+  timezone_offset: ${TIMEZONE_OFFSET}
+  auth:
+    enabled: false
+
+selected_module:
+  VAD: SileroVAD
+  ASR: FunASR          # SenseVoiceSmall, runs locally (CPU is fine)
+  LLM: NucLLM          # your local model, defined below
+  TTS: EdgeTTS         # free, but calls Microsoft's service; swap for a local TTS later
+  Memory: nomem
+  # function_call lets the LLM drive StackChan's MCP tools (head, LEDs, camera).
+  # Needs a model with tool calling (qwen2.5, llama3.1, mistral-nemo, ...).
+  # Use nointent if your model can't do tools.
+  Intent: function_call
+
+LLM:
+  NucLLM:
+    type: openai
+    url: ${LLM_URL}
+    model_name: ${LLM_MODEL}
+    api_key: ${LLM_API_KEY}
+
+ASR:
+  FunASR:
+    type: fun_local
+    model_dir: models/SenseVoiceSmall
+    output_dir: tmp/
+    language: ${ASR_LANGUAGE}
+
+TTS:
+  EdgeTTS:
+    type: edge
+    voice: ${TTS_VOICE}
+    output_dir: tmp/
+
+prompt: |
+  You are StackChan, a small desktop robot with a face on a screen and a head
+  that can pan and tilt. You are friendly, curious and a little playful.
+  Keep answers short (one to three sentences) because they are spoken aloud.
+  Use your tools to move your head or change your LEDs when it fits the moment.
+
+system_error_response: "Sorry, my brain is a bit busy right now. Try again in a moment."
+exit_commands:
+  - "goodbye"
+  - "go to sleep"
