@@ -1,10 +1,12 @@
 # Self-hosted xiaozhi voice server (ASR + LLM routing + TTS) for StackChan,
 # plus a local text-to-speech engine.
 # Upstream project: https://github.com/xinnan-tech/xiaozhi-esp32-server
-# Run ./render-config.sh first, then: docker compose up -d
+# Run ./render-config.sh first, then: docker compose up -d --build
 services:
   xiaozhi-server:
-    image: ghcr.io/xinnan-tech/xiaozhi-esp32-server:server_latest
+    # The stock image plus the Anthropic SDK for the Claude preset.
+    build: ./image
+    image: stackchan-xiaozhi-server:local
     container_name: stackchan-xiaozhi-server
     restart: unless-stopped
     security_opt:
@@ -22,8 +24,15 @@ services:
       - ./models/SenseVoiceSmall/model.pt:/opt/xiaozhi-esp32-server/models/SenseVoiceSmall/model.pt
       # Extra LLM provider: thinking-off for llama.cpp-style servers (Strata)
       - ./providers/llamacpp:/opt/xiaozhi-esp32-server/core/providers/llm/llamacpp:ro
-      # Extra vision provider: no forced-Chinese suffix, thinking-off for Strata
+      # Extra LLM provider: Claude through the official Anthropic SDK
+      - ./providers/claude:/opt/xiaozhi-esp32-server/core/providers/llm/claude:ro
+      # LLM switchboard: holds every preset, picks the active one per request
+      - ./providers/router:/opt/xiaozhi-esp32-server/core/providers/llm/router:ro
+      # Extra vision providers: no forced-Chinese suffix and thinking-off for
+      # Strata (llamacpp), Claude, and the vision switchboard (router)
       - ./providers/vllm/llamacpp.py:/opt/xiaozhi-esp32-server/core/providers/vllm/llamacpp.py:ro
+      - ./providers/vllm/claude.py:/opt/xiaozhi-esp32-server/core/providers/vllm/claude.py:ro
+      - ./providers/vllm/router.py:/opt/xiaozhi-esp32-server/core/providers/vllm/router.py:ro
     depends_on:
       - kokoro-tts
 
@@ -31,6 +40,10 @@ services:
   # it, over the compose network, so no port is published and no firewall
   # rule is needed. Used when USE_TTS=local.
   kokoro-tts:
-    image: ghcr.io/remsky/kokoro-fastapi-cpu:latest
+    image: ${KOKORO_IMAGE:-ghcr.io/remsky/kokoro-fastapi-cpu:latest}
     container_name: stackchan-kokoro-tts
     restart: unless-stopped
+    environment:
+      # The voice models are inside the image. Without this the container
+      # checks them against Hugging Face on every start.
+      - HF_HUB_OFFLINE=1

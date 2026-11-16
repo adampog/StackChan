@@ -49,7 +49,7 @@ cp .env.example .env        # set LLM_API_KEY (and host/model if they change)
 ./render-config.sh          # writes data/.config.yaml and prints the OTA URL
 curl -L -o models/SenseVoiceSmall/model.pt \
   https://modelscope.cn/models/iic/SenseVoiceSmall/resolve/master/model.pt
-docker compose up -d
+docker compose up -d --build   # builds the image once (adds the Anthropic SDK)
 docker compose logs -f      # look for the OTA and WebSocket addresses
 ```
 
@@ -89,34 +89,76 @@ Pick one:
 If the robot can't resolve `nuc3080`, use the machine's IP in both `.env`
 (`XIAOZHI_HOST`) and the OTA URL. A DHCP reservation keeps it stable.
 
-## Local or cloud, per piece
+## Pick the brain, on the fly
 
-Everything runs on nuc3080 by default. Each piece can be moved to a cloud
-service and back without touching the robot:
+Everything runs on nuc3080 by default. The LLM (and vision) can be pointed at
+another backend at any time without touching the robot:
 
 ```sh
 ./switch.sh status
-./switch.sh llm cloud        # asr | llm | tts | vision | all, then local | cloud
-./switch.sh all local
+./switch.sh llm claude       # or just: ./switch.sh claude
+./switch.sh llm local
+./switch.sh vision claude
 ```
 
-It updates `USE_*` in `.env`, re-renders the config and restarts the voice
-server (set `DOCKER="sudo docker"` if needed). The robot reconnects by itself
-the next time you talk to it.
+From another machine: `ssh 192.168.1.214 'cd <repo>/deploy/local-llm && ./switch.sh claude'`.
+Or say it to the robot: "switch to Claude", "switch to local", "which brain
+are you using?".
 
-| Piece  | local                         | cloud                                         |
-|--------|-------------------------------|-----------------------------------------------|
-| ASR    | SenseVoiceSmall on the CPU    | OpenAI-compatible transcription (`CLOUD_ASR_*`) |
-| LLM    | Strata on nuc3080             | OpenAI-compatible chat API (`CLOUD_LLM_*`)    |
-| Vision | Strata on nuc3080             | OpenAI-compatible vision model (`CLOUD_VISION_*`) |
-| TTS    | Kokoro (`kokoro-tts` container) | Microsoft Edge TTS (free, no key)           |
+| `llm` preset      | What it is                                   | Key in `.env`        | Model setting           |
+|-------------------|----------------------------------------------|----------------------|-------------------------|
+| `local`           | Strata on nuc3080 (free, private)            | `LLM_API_KEY`        | `LLM_MODEL`             |
+| `claude`          | Claude, through the official Anthropic SDK   | `ANTHROPIC_API_KEY`  | `CLAUDE_MODEL`, `CLAUDE_EFFORT` |
+| `openrouter`      | Any model on OpenRouter                      | `OPENROUTER_API_KEY` | `OPENROUTER_MODEL`      |
+| `openrouter-free` | OpenRouter's free models (50 requests a day; 1,000 with $10 of credit) | `OPENROUTER_API_KEY` | `OPENROUTER_FREE_MODEL` |
+| `huggingface`     | Hugging Face Inference Providers             | `HF_TOKEN`           | `HF_MODEL`              |
+| `deepseek`        | DeepSeek's own API                           | `DEEPSEEK_API_KEY`   | `DEEPSEEK_MODEL`        |
+| `custom`          | Any other OpenAI-compatible API              | `CLOUD_LLM_API_KEY`  | `CLOUD_LLM_URL`, `CLOUD_LLM_MODEL` |
 
-Cloud keys go in `.env` only. `switch.sh` refuses to switch a piece to cloud
-while its key is still `changeme`.
+Vision presets: `local` (Strata), `claude`, `custom` (`CLOUD_VISION_*`).
 
-Even fully local, two things still use the internet: pulling the Docker
-images and the speech model once at install time, and whatever the robot's
-firmware does by itself (time sync, for example).
+How it works:
+
+- The voice server loads one "switchboard" provider (`providers/router`) that
+  holds every preset. The active name is a one-line file, `data/llm-preset`
+  (`data/vision-preset` for vision), read on every request. So a switch takes
+  effect on the next sentence, with no restart and no dropped conversation.
+- All of it runs on the voice server. Nothing is added to the robot's
+  firmware, memory or tool list.
+- If the active brain fails before it has said anything (no internet, wrong
+  key), that turn is answered by `local` and the robot says so once.
+- A preset can't be chosen while its key is still `changeme`. After editing
+  keys or models in `.env`, run any `./switch.sh` command: it re-renders the
+  config and restarts the voice server once (about 6 s).
+- The robot moves its head and LEDs through tool calls. Claude, DeepSeek and
+  the local model support them; on OpenRouter and Hugging Face it depends on
+  the model, and a model without tool calling will talk but not move.
+- The Claude preset defaults to `claude-opus-5-5` at low effort. Set
+  `CLAUDE_MODEL=claude-haiku-5-5` for the fastest, cheapest replies. On Opus,
+  Sonnet 5.5 and Fable models a request the model declines is retried
+  server-side on Anthropic's recommended fallback model.
+- Set `VOICE_SWITCH=false` to turn spoken switching off.
+
+## Speech in and out
+
+Speech recognition and speech output are switched per piece, with a short
+restart of the voice server (the robot reconnects the next time you talk):
+
+```sh
+./switch.sh tts cloud        # asr | tts, then local | cloud
+./switch.sh all local        # everything back on nuc3080
+```
+
+| Piece | local                           | cloud                                           |
+|-------|---------------------------------|-------------------------------------------------|
+| ASR   | SenseVoiceSmall on the CPU      | OpenAI-compatible transcription (`CLOUD_ASR_*`) |
+| TTS   | Kokoro (`kokoro-tts` container) | Microsoft Edge TTS (free, no key)               |
+
+Set `DOCKER="sudo docker"` if docker needs sudo.
+
+With everything on local, the voice loop makes no internet connections. What
+still does: pulling the Docker images and the speech model at install time,
+and the robot's own time sync (NTP) and DNS lookups.
 
 ## What changes for you
 
