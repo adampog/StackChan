@@ -109,7 +109,12 @@ static cJSON* call_tool(const cJSON* params, std::string& error)
         }
 
         mclog::tagInfo(_tag, "tools/call: {}", (*tool)->name());
-        return cJSON_Parse((*tool)->Call(arguments).c_str());
+        auto result = (*tool)->Call(arguments);
+        if (!result) {
+            error = result.error();
+            return nullptr;
+        }
+        return cJSON_Parse(result->c_str());
     } catch (const std::exception& e) {
         error = e.what();
         return nullptr;
