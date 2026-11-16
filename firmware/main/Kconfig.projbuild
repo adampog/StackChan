@@ -1107,3 +1107,37 @@ menu "BLE prph Configuration"
             Use this option to enable resolving peer's address.
 
 endmenu
+
+menu "StackChan Memory"
+
+config STACKCHAN_OPUS_TASK_STACK_IN_PSRAM
+    bool "Run the Opus codec task on a PSRAM stack"
+    default y
+    help
+        xiaozhi's opus_codec task has a 24 KB stack, the largest task stack
+        on the robot, and xTaskCreate puts it in internal RAM. This creates
+        it with a PSRAM stack instead, like xiaozhi already does for its
+        AFE and wake-word tasks. The task never touches flash, so a PSRAM
+        stack is safe; encoding and decoding may be slightly slower.
+
+config STACKCHAN_RELEASE_BT_MEMORY_FOR_AI_AGENT
+    bool "Give Bluetooth RAM back when AI Agent starts without BLE"
+    default y
+    depends on BT_ENABLED
+    help
+        BLE is only used by Setup (phone app Wi-Fi config) and the Dance app.
+        When the AI Agent starts and BLE was never started since boot, the
+        Bluetooth controller and NimBLE static RAM (plus the RAM the BLE ROM
+        reserves) is handed to the heap. BLE then stays off until the next
+        reboot. Leaving AI Agent already reboots the robot.
+
+config STACKCHAN_LVGL_BUFFER_LINES
+    int "LVGL draw buffer height (lines)"
+    default 10
+    range 4 240
+    help
+        The LVGL draw buffer must be in internal DMA RAM. It costs
+        320 x lines x 2 bytes: 20 lines (the old value) is 12.5 KB, 10 lines
+        is 6.25 KB. Fewer lines means more, smaller SPI flushes per frame.
+
+endmenu
