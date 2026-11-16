@@ -3,4 +3,4 @@
 
 # Point the voice pipeline at the self-hosted xiaozhi server on your LAN
 # (see deploy/local-llm/README.md) instead of the xiaozhi cloud.
-CONFIG_OTA_URL="http://nuc3080:8003/xiaozhi/ota/"
+CONFIG_OTA_URL="http://192.168.1.214:8003/xiaozhi/ota/"

@@ -19,3 +19,5 @@ services:
     volumes:
       - ./data:/opt/xiaozhi-esp32-server/data
       - ./models/SenseVoiceSmall/model.pt:/opt/xiaozhi-esp32-server/models/SenseVoiceSmall/model.pt
+      # Extra LLM provider: thinking-off for llama.cpp-style servers (Strata)
+      - ./providers/llamacpp:/opt/xiaozhi-esp32-server/core/providers/llm/llamacpp:ro

@@ -52,7 +52,7 @@ docker compose up -d
 docker compose logs -f      # look for the OTA and WebSocket addresses
 ```
 
-Check it in a browser: `http://nuc3080:8003/xiaozhi/ota/` should return a
+Check it in a browser: `http://192.168.1.214:8003/xiaozhi/ota/` should return a
 message saying the OTA interface is running, with the WebSocket address.
 
 All the knobs (LLM host, port, model, voice, ports) live in `.env`. Change them
@@ -64,10 +64,11 @@ Notes for nuc3080:
   homelab inventory (`inventory/host_vars/nuc3080.yml`), not a hand-made ufw rule.
 - The GPU has little free VRAM with Strata loaded. This compose file doesn't
   pass the GPU through, so speech recognition runs on the CPU and doesn't compete.
-- `LLM_THINKING=off` sends `{"thinking": {"type": "disabled"}}`. Strata was
-  tested with `chat_template_kwargs.enable_thinking=false` instead, so if
-  replies are slow or empty, check the server log to see whether it honours
-  this form.
+- Strata ignores the stock provider's thinking-off parameter, so this setup
+  mounts a small provider (`providers/llamacpp`, `LLM_TYPE=llamacpp`) that
+  sends `chat_template_kwargs.enable_thinking=false` instead.
+- Containers reach Strata through the Docker bridge, so the Strata firewall
+  rule must also allow `172.16.0.0/12`.
 
 ## 3. Point the robot at it
 
@@ -76,7 +77,7 @@ Pick one:
 - **No reflash:** the firmware reads an `ota_url` override from NVS (`wifi`
   namespace) before falling back to `CONFIG_OTA_URL`. If your provisioning flow
   exposes it (the xiaozhi Wi-Fi setup page has it under Advanced), set it to
-  `http://nuc3080:8003/xiaozhi/ota/`.
+  `http://192.168.1.214:8003/xiaozhi/ota/`.
 - **Rebuild:** `cp firmware/sdkconfig.defaults.local.example firmware/sdkconfig.defaults.local`,
   edit the host if needed, then `idf.py fullclean && idf.py build flash`.
 

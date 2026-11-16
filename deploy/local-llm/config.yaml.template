@@ -26,11 +26,12 @@ selected_module:
 
 LLM:
   NucLLM:
-    type: openai
+    # providers/llamacpp: the openai provider, but it turns thinking off the
+    # way llama.cpp-style servers expect. Use "type: openai" for other servers.
+    type: ${LLM_TYPE}
     url: ${LLM_URL}
     model_name: ${LLM_MODEL}
     api_key: ${LLM_API_KEY}
-    # Sent as extra_body {"thinking": {"type": "disabled"}} when off.
     thinking: "${LLM_THINKING}"
 
 ASR:
