@@ -196,6 +196,9 @@ void Hal::startXiaozhi()
         hal_bridge::app_play_sound(OGG_NEW_NOTIFICATION);
     });
 
+    // Nothing in AI Agent mode uses BLE, and leaving it reboots, so its RAM can go to xiaozhi
+    releaseBleMemoryIfUnused();
+
     // Start stackchan update task
     xTaskCreatePinnedToCore(_stackchan_update_task, "stackchan", 4096, NULL, 3, NULL, 1);
 

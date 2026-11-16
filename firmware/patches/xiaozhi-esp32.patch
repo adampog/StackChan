@@ -98,6 +98,41 @@ index f2b9a00..68f01d1 100644
      void SetListeningMode(ListeningMode mode);
      ListeningMode GetDefaultListeningMode() const;
      
+diff --git a/main/audio/audio_service.cc b/main/audio/audio_service.cc
+index 7f7582b..8372c82 100644
+--- a/main/audio/audio_service.cc
++++ b/main/audio/audio_service.cc
+@@ -1,5 +1,8 @@
+ #include "audio_service.h"
+ #include <esp_log.h>
++#include <esp_heap_caps.h>
++#include <freertos/FreeRTOS.h>
++#include <freertos/idf_additions.h>
+ #include <cstring>
+ 
+ #define RATE_CVT_CFG(_src_rate, _dest_rate, _channel)                                        \
+@@ -161,6 +164,21 @@ void AudioService::Start() {
+ #endif
+ 
+     /* Start the opus codec task */
++#if CONFIG_STACKCHAN_OPUS_TASK_STACK_IN_PSRAM
++    // StackChan: the 24 KB stack is the largest on the robot. Keep it out of
++    // internal RAM; this task never touches flash, so a PSRAM stack is safe.
++    if (xTaskCreateWithCaps(
++            [](void* arg) {
++                AudioService* audio_service = (AudioService*)arg;
++                audio_service->OpusCodecTask();
++                vTaskDeleteWithCaps(NULL);
++            },
++            "opus_codec", 2048 * 12, this, 2, &opus_codec_task_handle_,
++            MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT) == pdPASS) {
++        return;
++    }
++    ESP_LOGW(TAG, "No PSRAM for the opus_codec stack, using internal RAM");
++#endif
+     xTaskCreate(
+         [](void* arg) {
+             AudioService* audio_service = (AudioService*)arg;
 diff --git a/main/boards/common/esp_video.cc b/main/boards/common/esp_video.cc
 index 2f31a49..4cf6f63 100644
 --- a/main/boards/common/esp_video.cc

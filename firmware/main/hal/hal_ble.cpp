@@ -13,6 +13,8 @@
 #include <mooncake.h>
 #include <settings.h>
 #include <esp_mac.h>
+#include <esp_bt.h>
+#include <esp_heap_caps.h>
 
 static const std::string_view _tag              = "HAL-BLE";
 static const uint8_t _ble_fragment_magic0       = 0xAA;
@@ -304,8 +306,18 @@ static uint8_t _handle_ble_battery_read(void)
     return 96;
 }
 
+// BLE is started on demand (Setup, Dance). Once its RAM has been handed to the heap it cannot come back
+// until reboot, so remember both states.
+static bool _ble_started      = false;
+static bool _ble_mem_released = false;
+
 void Hal::ble_init(bool useAltUuid)
 {
+    if (_ble_mem_released) {
+        mclog::tagError(_tag, "init skipped: BT memory was released, BLE is off until reboot");
+        return;
+    }
+    _ble_started = true;
     mclog::tagInfo(_tag, "init");
 
     static stackchan_ble_callbacks_t ble_callbacks = {
@@ -329,6 +341,24 @@ void Hal::startBleServer()
 {
     mclog::tagInfo(_tag, "start ble server");
     ble_init(false);
+}
+
+void Hal::releaseBleMemoryIfUnused()
+{
+#if CONFIG_STACKCHAN_RELEASE_BT_MEMORY_FOR_AI_AGENT
+    if (_ble_started || _ble_mem_released) {
+        return;
+    }
+    const size_t before = heap_caps_get_free_size(MALLOC_CAP_INTERNAL);
+    esp_err_t err       = esp_bt_mem_release(ESP_BT_MODE_BLE);
+    if (err != ESP_OK) {
+        mclog::tagError(_tag, "BT memory release failed: {}", esp_err_to_name(err));
+        return;
+    }
+    _ble_mem_released = true;
+    mclog::tagInfo(_tag, "BLE unused this boot, released BT memory: internal free {} -> {} bytes", before,
+                   heap_caps_get_free_size(MALLOC_CAP_INTERNAL));
+#endif
 }
 
 bool Hal::isBleConnected()

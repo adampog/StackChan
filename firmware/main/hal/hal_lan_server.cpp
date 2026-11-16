@@ -11,6 +11,8 @@
 #include <mdns.h>
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
+#include <freertos/idf_additions.h>
+#include <esp_heap_caps.h>
 
 static const std::string_view _tag = "HAL-LAN";
 
@@ -48,7 +50,7 @@ static void start_server_task(void* param)
     httpd_handle_t server = nullptr;
     if (httpd_start(&server, &config) != ESP_OK) {
         mclog::tagError(_tag, "failed to start http server on port {}", config.server_port);
-        vTaskDelete(nullptr);
+        vTaskDeleteWithCaps(nullptr);
         return;
     }
 
@@ -62,12 +64,17 @@ static void start_server_task(void* param)
 
     mclog::tagInfo(_tag, "listening on http://{}:{} (http://{}.local)", WifiManager::GetInstance().GetIpAddress(),
                    config.server_port, CONFIG_STACKCHAN_LAN_HOSTNAME);
-    vTaskDelete(nullptr);
+    vTaskDeleteWithCaps(nullptr);
 }
 
 void Hal::startLanServer()
 {
 #if CONFIG_STACKCHAN_REEFWATCH_ENABLE || CONFIG_STACKCHAN_LAN_MCP_ENABLE
-    xTaskCreate(start_server_task, "lan_server", 4096, nullptr, 3, nullptr);
+    // This task only lives until Wi-Fi is up, which is when internal RAM is lowest, and it never writes
+    // flash, so its stack goes in PSRAM.
+    if (xTaskCreateWithCaps(start_server_task, "lan_server", 4096, nullptr, 3, nullptr,
+                            MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT) != pdPASS) {
+        mclog::tagError(_tag, "failed to create lan_server task");
+    }
 #endif
 }
