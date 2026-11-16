@@ -230,6 +230,8 @@ public:
     uitk::Signal<AppConfigEvent> onAppConfigEvent;
 
     void startBleServer();
+    // Hands Bluetooth's static RAM to the heap if BLE was never started this boot (BLE stays off until reboot)
+    void releaseBleMemoryIfUnused();
     bool isBleConnected();
     void startAppConfigServer();
     bool isAppConfiged();
