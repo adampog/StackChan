@@ -18,9 +18,10 @@ and point it at nuc3080's OpenAI-compatible endpoint:
 
 ```
 StackChan ──OTA──▶ xiaozhi-server :8003 ──▶ ws://…:8000 (audio)
-                       │  ASR: SenseVoice (local)
-                       │  LLM: http://nuc3080:8080/v1   ◀── your model
-                       └  TTS: EdgeTTS (or a local TTS)
+                       │  ASR:    SenseVoice (local, CPU)
+                       │  LLM:    http://nuc3080:8080/v1   ◀── your model
+                       │  Vision: the same model (camera questions)
+                       └  TTS:    Kokoro (local, CPU, own container)
 ```
 
 No firmware code changes are needed: the OTA URL is already configurable.
@@ -88,6 +89,35 @@ Pick one:
 If the robot can't resolve `nuc3080`, use the machine's IP in both `.env`
 (`XIAOZHI_HOST`) and the OTA URL. A DHCP reservation keeps it stable.
 
+## Local or cloud, per piece
+
+Everything runs on nuc3080 by default. Each piece can be moved to a cloud
+service and back without touching the robot:
+
+```sh
+./switch.sh status
+./switch.sh llm cloud        # asr | llm | tts | vision | all, then local | cloud
+./switch.sh all local
+```
+
+It updates `USE_*` in `.env`, re-renders the config and restarts the voice
+server (set `DOCKER="sudo docker"` if needed). The robot reconnects by itself
+the next time you talk to it.
+
+| Piece  | local                         | cloud                                         |
+|--------|-------------------------------|-----------------------------------------------|
+| ASR    | SenseVoiceSmall on the CPU    | OpenAI-compatible transcription (`CLOUD_ASR_*`) |
+| LLM    | Strata on nuc3080             | OpenAI-compatible chat API (`CLOUD_LLM_*`)    |
+| Vision | Strata on nuc3080             | OpenAI-compatible vision model (`CLOUD_VISION_*`) |
+| TTS    | Kokoro (`kokoro-tts` container) | Microsoft Edge TTS (free, no key)           |
+
+Cloud keys go in `.env` only. `switch.sh` refuses to switch a piece to cloud
+while its key is still `changeme`.
+
+Even fully local, two things still use the internet: pulling the Docker
+images and the speech model once at install time, and whatever the robot's
+firmware does by itself (time sync, for example).
+
 ## What changes for you
 
 - The device no longer binds to xiaozhi.me, so agent/voice settings made in the
@@ -95,7 +125,3 @@ If the robot can't resolve `nuc3080`, use the machine's IP in both `.env`
   it. The prompt, voice and model now come from `.env` and `config.yaml.template`.
 - The StackChan backend (`CONFIG_STACKCHAN_SERVER_URL`: avatar, apps, camera
   WebSocket) is separate and unaffected.
-- EdgeTTS still calls Microsoft's free TTS service over the internet. For a
-  fully offline setup, switch `TTS` to a local engine supported by
-  xiaozhi-esp32-server (for example FishSpeech or an OpenAI-compatible TTS on
-  the NUC).

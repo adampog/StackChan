@@ -13,11 +13,14 @@ server:
   auth:
     enabled: false
 
+# Which backend each piece uses. Set by USE_ASR / USE_LLM / USE_TTS /
+# USE_VISION in .env (local or cloud); change them with ./switch.sh.
 selected_module:
   VAD: SileroVAD
-  ASR: FunASR          # SenseVoiceSmall, runs locally (CPU is fine)
-  LLM: NucLLM          # your local model, defined below
-  TTS: EdgeTTS         # free, but calls Microsoft's service; swap for a local TTS later
+  ASR: ${SEL_ASR}
+  LLM: ${SEL_LLM}
+  VLLM: ${SEL_VLLM}
+  TTS: ${SEL_TTS}
   Memory: nomem
   # function_call lets the LLM drive StackChan's MCP tools (head, LEDs, camera).
   # Needs a model with tool calling (the default qwen3.8-flash on nuc3080 does).
@@ -25,6 +28,7 @@ selected_module:
   Intent: function_call
 
 LLM:
+  # local
   NucLLM:
     # providers/llamacpp: the openai provider, but it turns thinking off the
     # way llama.cpp-style servers expect. Use "type: openai" for other servers.
@@ -33,20 +37,66 @@ LLM:
     model_name: ${LLM_MODEL}
     api_key: ${LLM_API_KEY}
     thinking: "${LLM_THINKING}"
+  # cloud: any OpenAI-compatible API
+  CloudLLM:
+    type: openai
+    url: ${CLOUD_LLM_URL}
+    model_name: ${CLOUD_LLM_MODEL}
+    api_key: ${CLOUD_LLM_API_KEY}
+    thinking: keep
+
+# Vision: answers questions about a photo from the robot's camera.
+VLLM:
+  # local: the same model on nuc3080 (it accepts images)
+  NucVLLM:
+    type: llamacpp
+    url: ${VISION_URL}
+    model_name: ${VISION_MODEL}
+    api_key: ${LLM_API_KEY}
+    thinking: "${LLM_THINKING}"
+    language: ${REPLY_LANGUAGE}
+  CloudVLLM:
+    type: llamacpp
+    url: ${CLOUD_VISION_URL}
+    model_name: ${CLOUD_VISION_MODEL}
+    api_key: ${CLOUD_VISION_API_KEY}
+    thinking: keep
+    language: ${REPLY_LANGUAGE}
 
 ASR:
+  # local: SenseVoiceSmall on the CPU
   FunASR:
     type: fun_local
     model_dir: models/SenseVoiceSmall
     output_dir: tmp/
     language: ${ASR_LANGUAGE}
+  # cloud: any OpenAI-compatible transcription API
+  CloudASR:
+    type: openai
+    base_url: ${CLOUD_ASR_URL}
+    model_name: ${CLOUD_ASR_MODEL}
+    api_key: ${CLOUD_ASR_API_KEY}
+    output_dir: tmp/
 
+# "language" also sets the language the LLM is told to answer in (the stock
+# default is Chinese), so every TTS entry carries it.
 TTS:
+  # local: Kokoro in the kokoro-tts container (OpenAI-compatible speech API)
+  LocalTTS:
+    type: openai
+    api_url: http://kokoro-tts:8880/v1/audio/speech
+    api_key: local
+    model: kokoro
+    voice: ${LOCAL_TTS_VOICE}
+    format: wav
+    speed: 1
+    output_dir: tmp/
+    language: ${REPLY_LANGUAGE}
+  # cloud: Microsoft Edge TTS (free, no key, needs internet)
   EdgeTTS:
     type: edge
     voice: ${TTS_VOICE}
     output_dir: tmp/
-    # Also sets the language the LLM is told to answer in (default is Chinese).
     language: ${REPLY_LANGUAGE}
 
 # Only StackChan's own tools (sent by the robot over MCP) plus the built-in
@@ -67,6 +117,7 @@ prompt: |
   that can pan and tilt. You are friendly, curious and a little playful.
   Keep answers short (one to three sentences) because they are spoken aloud.
   Use your tools to move your head or change your LEDs when it fits the moment.
+  Only use the camera when asked what you can see.
 
 end_prompt:
   enable: true

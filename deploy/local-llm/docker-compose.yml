@@ -1,4 +1,5 @@
-# Self-hosted xiaozhi voice server (ASR + LLM routing + TTS) for StackChan.
+# Self-hosted xiaozhi voice server (ASR + LLM routing + TTS) for StackChan,
+# plus a local text-to-speech engine.
 # Upstream project: https://github.com/xinnan-tech/xiaozhi-esp32-server
 # Run ./render-config.sh first, then: docker compose up -d
 services:
@@ -21,3 +22,15 @@ services:
       - ./models/SenseVoiceSmall/model.pt:/opt/xiaozhi-esp32-server/models/SenseVoiceSmall/model.pt
       # Extra LLM provider: thinking-off for llama.cpp-style servers (Strata)
       - ./providers/llamacpp:/opt/xiaozhi-esp32-server/core/providers/llm/llamacpp:ro
+      # Extra vision provider: no forced-Chinese suffix, thinking-off for Strata
+      - ./providers/vllm/llamacpp.py:/opt/xiaozhi-esp32-server/core/providers/vllm/llamacpp.py:ro
+    depends_on:
+      - kokoro-tts
+
+  # Local text-to-speech (Kokoro, CPU build). Only the voice server talks to
+  # it, over the compose network, so no port is published and no firewall
+  # rule is needed. Used when USE_TTS=local.
+  kokoro-tts:
+    image: ghcr.io/remsky/kokoro-fastapi-cpu:latest
+    container_name: stackchan-kokoro-tts
+    restart: unless-stopped
