@@ -67,6 +67,10 @@ Notes for nuc3080:
 - Strata ignores the stock provider's thinking-off parameter, so this setup
   mounts a small provider (`providers/llamacpp`, `LLM_TYPE=llamacpp`) that
   sends `chat_template_kwargs.enable_thinking=false` instead.
+- Replies are in `REPLY_LANGUAGE` (English). The stock server defaults to
+  Chinese and a long Chinese-flavoured system prompt; `agent-prompt.txt` is a
+  short English replacement, and the weather/news/search plugins are off so
+  the first prompt stays small.
 - Containers reach Strata through the Docker bridge, so the Strata firewall
   rule must also allow `172.16.0.0/12`.
 

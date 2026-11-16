@@ -46,12 +46,32 @@ TTS:
     type: edge
     voice: ${TTS_VOICE}
     output_dir: tmp/
+    # Also sets the language the LLM is told to answer in (default is Chinese).
+    language: ${REPLY_LANGUAGE}
+
+# Only StackChan's own tools (sent by the robot over MCP) plus the built-in
+# exit tool. The stock list adds weather/news/search plugins that need
+# Chinese web services and make the first prompt much longer.
+Intent:
+  function_call:
+    type: function_call
+    functions: []
+
+# Compact English system prompt wrapper (copied to data/ by render-config.sh).
+# The stock one is long and full of Chinese examples, which slows the first
+# reply and nudges the model toward Chinese.
+prompt_template: data/agent-prompt.txt
 
 prompt: |
   You are StackChan, a small desktop robot with a face on a screen and a head
   that can pan and tilt. You are friendly, curious and a little playful.
   Keep answers short (one to three sentences) because they are spoken aloud.
   Use your tools to move your head or change your LEDs when it fits the moment.
+
+end_prompt:
+  enable: true
+  prompt: |
+    Say a short, warm goodbye in one sentence.
 
 system_error_response: "Sorry, my brain is a bit busy right now. Try again in a moment."
 exit_commands:
