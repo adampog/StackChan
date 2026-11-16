@@ -66,3 +66,6 @@ sdkconfig.old
 sdkconfig.defaults.local
 
 xiaozhi-esp32/
+
+# Local StackChan overrides
+sdkconfig.defaults.local

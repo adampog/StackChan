@@ -1,0 +1,6 @@
+# Copy to sdkconfig.defaults.local (git-ignored) to apply on top of sdkconfig.defaults.
+# After changing it, run `idf.py fullclean` (or delete sdkconfig) so the new defaults take effect.
+
+# Point the voice pipeline at the self-hosted xiaozhi server on your LAN
+# (see deploy/local-llm/README.md) instead of the xiaozhi cloud.
+CONFIG_OTA_URL="http://192.168.1.214:8003/xiaozhi/ota/"
