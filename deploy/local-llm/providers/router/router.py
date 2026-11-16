@@ -164,6 +164,8 @@ class LLMProvider(LLMProviderBase):
         name = self.active()
         started = False
         try:
+            if not self.usable(name):
+                raise ValueError(f"no API key set for {name}")
             for item in call(self.provider(name)):
                 started = True
                 yield item
