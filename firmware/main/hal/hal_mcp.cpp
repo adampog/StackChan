@@ -27,9 +27,10 @@ void Hal::xiaozhi_mcp_init()
     auto add_tool = [&mcp_server](const std::string& name, const std::string& description,
                                   const PropertyList& properties,
                                   std::function<ReturnValue(const PropertyList&)> callback) {
-        auto tool = new McpTool(name, description, properties, callback);
-        mcp_server.AddTool(tool);
-        lan_mcp_add_tool(tool);
+        // mcp_server owns the tool; the LAN server keeps a non-owning pointer (tools live for the whole run)
+        auto tool = std::make_unique<McpTool>(name, description, properties, callback);
+        lan_mcp_add_tool(tool.get());
+        mcp_server.AddTool(std::move(tool));
     };
 
     // System Prompt：

@@ -6,6 +6,7 @@
 #pragma once
 #include "stackchan_camera.h"
 #include <cstdint>
+#include <sdkconfig.h>
 #include <lvgl.h>
 #include <driver/i2c_master.h>
 #include <string_view>
@@ -28,7 +29,11 @@ struct XiaozhiConfig_t {
     uint32_t idleShutdownTimeSeconds = 600;
     bool allowShutdownWhenCharging   = false;
     uint8_t idleRandomMovementLevel  = 2;
-    bool startAiAgentOnBoot          = false;
+#ifdef CONFIG_STACKCHAN_START_AI_AGENT_ON_BOOT
+    bool startAiAgentOnBoot = true;
+#else
+    bool startAiAgentOnBoot = false;
+#endif
 };
 
 void lock();
